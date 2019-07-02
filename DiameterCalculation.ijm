@@ -110,8 +110,8 @@ getSelectionCoordinates(x, y);
 
 // Prepare for operation by getting information about the image
 getDimensions(width, height, channels, slices, frames);
-print(width + " " + height + " " + channels + " " + slices + " " + frames);
 getPixelSize(pixelUnit, pixelWidth, pixelHeight);
+frameRate = getInfo("framerate");
 
 if (slices > 1) run("Z Project...", "projection=[Max Intensity] all");
 
@@ -193,9 +193,11 @@ for (slice = 1; slice <= slices; slice++) {
 	fwhms = getFWHMFromProfiles(profiles, (cLength * 2) + 1, pixelWidth);
 
 	Array.getStatistics(fwhms, min, max, mean, stdDev);
-	setResult("Slice", slice-1, slice);
-	setResult("Average FWHM Diameter (" + pixelUnit + ")", slice-1, mean);
-	setResult("Average FWHM stdDev", slice-1, stdDev);
+	setResult("Frame", slice-1, slice);
+	if (frameRate != "") setResult("Time (sec)", slice-1, slice * frameRate);
+	setResult("Mean (" + pixelUnit + ")", slice-1, mean);
+	setResult("Sigma", slice-1, stdDev);
+	for (i = 0; i < fwhms.length; i++) setResult("Line " + (i+1), slice-1, fwhms[i]);
 
 	// Set the maximum FWHM measurement to be used in the heatmap
 	if (max > maxFWHM) maxFWHM = max;
@@ -210,55 +212,19 @@ for (slice = 1; slice <= slices; slice++) {
 setSlice(startingSlice);
 updateResults();
 
-
-// Dump useful over-time graphs
 if (slices > 1) {
-	Plot.create("FWHM Diameter vs Slice Number for " + originalFileName, "Slice Number", "FWHM Diameter (" + pixelUnit + ")", Array.slice(Array.getSequence(slices + 1), 1), meanFwhms);
-	Array.getStatistics(meanFwhms, min, max, mean, stdDev);
-	Plot.setLimits(1, slices, 0, max);
-
-	// Generate a heatmap of change over time
-	pixels = newArray;
-	for (i = 1; i <= slices; i++) {
-		profiles = getProfilesForSlice(i);
-		fwhms = getFWHMFromProfiles(profiles, ((cLength * 2) + 1), pixelWidth);
-		for (cLine = 1; cLine <= fwhms.length; cLine++) {
-			pixels[pixels.length] = fwhms[cLine-1];
-		}
+	xValues = Array.slice(Array.getSequence(slices + 1), 1);
+	
+	xLabel = "Time (seconds)";
+	if (frameRate == "") {
+		frameRate = 1;
+		xLabel = "Frame Number";
 	}
 	
-	newImage("Temporary Heatmap of " + originalFileName, "8-bit", slices, roiManager("count"), 1);
-	for (slice = 1; slice <= slices; slice++) {
-		for (cLine = 1; cLine <= roiManager("count"); cLine++) {
-			setPixel(slice, cLine, pixels[(slice * roiManager("count")) + cLine]);
-		}
-	}
-
-	// Manipulate the heatmap into a figure
-	Array.getStatistics(pixels, min, max, mean, stdDev);
-	//run("Auto Crop (guess background color)");
-	setMinAndMax(min, max);	
-	run("Auto Crop (guess background color)");
-	run("Canvas Size...", "width=" + getWidth() + " height=" + (getHeight() + 3) + " position=Top-Left");
-	run("Canvas Size...", "width=" + (getWidth() + 1) + " height=" + (getHeight() + 1) + " position=Bottom-Right");
-	run("Scale...", "x=20 y=20 interpolation=None average create");
-	rename("Heatmap of " + originalFileName);
-	
-	// Close the old heatmap window
-	selectWindow("Temporary Heatmap of " + originalFileName);
-	close();
-	selectWindow("Heatmap of " + originalFileName);
-	
-	width = getWidth();
-	height = getHeight();
-	setJustification("center");
-	setColor(255, 255, 255);
-	drawString("Slice", width / 2, 15);
-	run("Rotate 90 Degrees Left"); 
-	drawString("Cross-Line", height / 2, width);
-	setJustification("left");
-	drawString("(1,1)", 0, width);
-	run("Calibration Bar...", "location=[Lower Right] fill=None label=White number=5 decimal=1 font=1 zoom=1 bold overlay");
-
+	for (i = 0; i < xValues.length; i++) xValues[i] = xValues[i] * frameRate;
+	Plot.create("FWHM Diameter vs Slice Number for " + originalFileName, xLabel, "FWHM Diameter (" + pixelUnit + ")", xValues, meanFwhms);
+	Array.getStatistics(meanFwhms, min, maxY, mean, stdDev);
+	Array.getStatistics(xValues, minX, maxX, mean, stdDev);
+	Plot.setLimits(minX, maxX, 0, maxY);
 	Plot.show();
 }
