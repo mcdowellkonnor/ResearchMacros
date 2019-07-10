@@ -57,7 +57,7 @@ function getFWHMFromProfiles(profiles, profileLength, pixelScale) {
 		median = (copiedProfile[floor((copiedProfile.length - 1) / 2)] + copiedProfile[round((copiedProfile.length - 1) / 2)]) / 2;
 		intersects = getYIntersects(0, derivative);
 		leftIntChange = 0;
-		rightIntChange = profile.length;
+		rightIntChange = profile.length - 1;
 		for (x = 0; x < intersects.length; x++) {
 			if (intersects[x] > leftIntChange && min - intersects[x] > 0) leftIntChange = intersects[x];
 			if (intersects[x] < rightIntChange && intersects[x] - max > 0) rightIntChange = intersects[x];
@@ -65,8 +65,8 @@ function getFWHMFromProfiles(profiles, profileLength, pixelScale) {
 
 		// Using the adjusted intersects, recalculate the half max and find the x distance
 		Array.getStatistics(profile, min, max, mean, stdDev);
-		halfMax = (max - profile[rightIntChange]) / 2;
-		fwhm = fwhmFromProfile(profile, halfMax, ((rightIntChange + leftIntChange) / 2), false);		
+		halfMax = (max - minOf(profile[leftIntChange], profile[rightIntChange])) / 2;
+		fwhm = fwhmFromProfile(profile, halfMax, ((rightIntChange + leftIntChange) / 2), false) * pixelScale;		
 		fwhms[fwhms.length] = fwhm;
 	}
 	return fwhms;
@@ -99,7 +99,7 @@ function getCLineLength(x, y, imgHeight) {
 		halfMax = max / 2;
 		fwhm = fwhmFromProfile(profile, halfMax, dist, true);
 
-		peakDist = fwhm + (0.60 * fwhm);
+		peakDist = fwhm + (0.70 * fwhm);
 		if (peakDist > maxPeakDist) maxPeakDist = peakDist;
 	}
 	close();
@@ -109,6 +109,7 @@ function getCLineLength(x, y, imgHeight) {
 
 function fwhmFromProfile(profile, targetY, vesselCenterX, minDist) {
 	intersects = getYIntersects(targetY, profile);
+	if (targetY < 0.2) return NaN;
 	
 	leftX = intersects[0];
 	rightX = intersects[intersects.length - 1];
@@ -138,6 +139,7 @@ function getYIntersects(targetY, fx) {
 //	====	PROGRAM START	====
 originalFileName = getInfo("image.filename");
 setTool("polyline");
+roiManager("reset");
 do {
 	waitForUser("Please draw through line.\n\nClick OK when finished.");
 } while (selectionType() != 6)
@@ -149,12 +151,11 @@ getDimensions(width, height, channels, slices, frames);
 getPixelSize(pixelUnit, pixelWidth, pixelHeight);
 frameRate = getInfo("framerate");
 
-if (slices > 1) run("Z Project...", "projection=[Max Intensity] all");
+if (slices > 1) run("Z Project...", "projection=[Average Intensity] all");
 
 startingSlice = getSliceNumber();
 meanFwhms = newArray;
 meanFwhmSTDEVs = newArray;
-roiManager("reset");
 maxFWHM = 0;
 
 // Determine the settings for the cross-lines
