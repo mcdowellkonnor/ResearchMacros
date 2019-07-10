@@ -229,7 +229,10 @@ for (slice = 1; slice <= slices; slice++) {
 	profiles = getProfilesForSlice(slice);
 	fwhms = getFWHMFromProfiles(profiles, (cLength * 2) + 1, pixelWidth);
 
-	Array.getStatistics(fwhms, min, max, mean, stdDev);
+	nonNanFwhms = newArray;
+	for (i = 0; i < fwhms.length; i++) if (!isNaN(fwhms[i])) nonNanFwhms[nonNanFwhms.length] = fwhms[i];
+	Array.getStatistics(nonNanFwhms, min, max, mean, stdDev);
+	
 	setResult("Frame", slice-1, slice);
 	if (frameRate != "") setResult("Time (sec)", slice-1, slice * frameRate);
 	setResult("Mean (" + pixelUnit + ")", slice-1, mean);
