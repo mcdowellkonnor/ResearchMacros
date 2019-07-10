@@ -65,7 +65,8 @@ function getFWHMFromProfiles(profiles, profileLength, pixelScale) {
 
 		// Using the adjusted intersects, recalculate the half max and find the x distance
 		Array.getStatistics(profile, min, max, mean, stdDev);
-		halfMax = (max - minOf(profile[leftIntChange], profile[rightIntChange])) / 2;
+		//halfMax = (max - minOf(profile[leftIntChange], profile[rightIntChange])) / 2;
+		halfMax = max / 2;
 		fwhm = fwhmFromProfile(profile, halfMax, ((rightIntChange + leftIntChange) / 2), false) * pixelScale;		
 		fwhms[fwhms.length] = fwhm;
 	}
