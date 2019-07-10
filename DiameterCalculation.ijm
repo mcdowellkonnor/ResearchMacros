@@ -31,6 +31,7 @@ function getProfilesForSlice(sliceNum) {
 		profile = getProfile();
 		Array.getStatistics(profile, min, max, mean, stdDev);
 		for (c=0; c<profile.length; c++) profile[c] = (profile[c] - min) / (max - min);
+		
 		profiles = Array.concat(profiles, profile);
 	}
 	return profiles;
@@ -43,26 +44,43 @@ function getFWHMFromProfiles(profiles, profileLength, pixelScale) {
 		// Obtain the FWHM value for this profile
 		Array.getStatistics(profile, min, max, mean, stdDev);
 		halfMax = max / 2;
-		intersects = newArray;
-		for (c=0; c < (profile.length - 1); c++) {
-			profileSlope = (profile[c+1] - profile[c]);
-			profileYInt = profile[c] + (-1 * profileSlope * c);
-			xInt = (halfMax - profileYInt) / profileSlope;
-			if (xInt >= c && xInt <= (c+1)) {
-				intersects[intersects.length] = xInt;
-			}
+		
+		intersects = getYIntersects(halfMax, profile);
+		Array.getStatistics(intersects, min, max, mean, stdDev);		
+		fwhm = (max - min) * pixelScale;
+
+		// Determine the derivative of this profile and use it to expand the bounds of FWHM height
+		derivative = newArray;
+		for (x = 0; x < (profile.length - 1); x++) derivative[derivative.length] = profile[x+1] - profile[x];
+		copiedProfile = Array.copy(profile);
+		Array.sort(copiedProfile);
+		median = (copiedProfile[floor((copiedProfile.length - 1) / 2)] + copiedProfile[round((copiedProfile.length - 1) / 2)]) / 2;
+		intersects = getYIntersects(0, derivative);
+		leftIntChange = 0;
+		rightIntChange = profile.length;
+		for (x = 0; x < intersects.length; x++) {
+			if (intersects[x] > leftIntChange && min - intersects[x] > 0) leftIntChange = intersects[x];
+			if (intersects[x] < rightIntChange && intersects[x] - max > 0) rightIntChange = intersects[x];
 		}
 
-		Array.getStatistics(intersects, min, max, mean, stdDev);
-		fwhms[fwhms.length] = (max - min) * pixelScale;
+		// Using the adjusted intersects, recalculate the half max and find the x distance
+		Array.getStatistics(profile, min, max, mean, stdDev);
+		halfMax = (max - profile[rightIntChange]) / 2;
+		fwhm = fwhmFromProfile(profile, halfMax, ((rightIntChange + leftIntChange) / 2), false);		
+		fwhms[fwhms.length] = fwhm;
 	}
 	return fwhms;
 }
 
-function findApproximateLength(x, y, imgHeight) {
-	run("Z Project...", "projection=[Max Intensity] all");
+function getCLineLength(x, y, imgHeight) {
+	getDimensions(width, height, channels, slices, frames);
+	if (slices > 1 || frames > 1) {
+		run("Z Project...", "projection=[Max Intensity] all");
+	} else {
+		run("Duplicate...", " ");
+	}
+	
 	run("Median...", "radius=10 stack");
-	run("Find Edges", "stack");
 	maxPeakDist = 0;
 	for (i = 0; i < x.length - 1; i++) {
 		invM = -1 / ((y[i+1] - y[i]) / (x[i+1] - x[i]));
@@ -75,31 +93,49 @@ function findApproximateLength(x, y, imgHeight) {
 		}
 		
 		profile = getProfile();
-
-		// Determine the peak ranges of this profile
-		Array.getStatistics(profile, min, max, mean, stdDev);
-		maxima = Array.findMaxima(profile, mean);
 		dist = sqrt(pow(((x[i+1] + x[i]) / 2) - 0, 2) + pow(((y[i+1] + y[i])/2) - invB, 2));
+		sample = Array.slice(profile,dist-10,dist+10);
+		Array.getStatistics(sample, min, max, mean, stdDev);
+		halfMax = max / 2;
+		fwhm = fwhmFromProfile(profile, halfMax, dist, true);
 
-		peakLeft = 0;
-		peakRight = 99999;
-		for (peakNum = 0; peakNum < maxima.length; peakNum++) {
-			if (maxima[peakNum] < dist && (dist - maxima[peakNum] < dist - peakLeft)) {
-				peakLeft = maxima[peakNum];
-			} else if (maxima[peakNum] > dist && (maxima[peakNum] - dist < peakRight - dist)) {
-				peakRight = maxima[peakNum];
-			}
-		}
-		
-		// Determine the peak distance and set the approximate length to that distance but include a tolerance
-		peakDist = peakRight - peakLeft;
-		peakDist += 40;
+		peakDist = fwhm + (0.60 * fwhm);
 		if (peakDist > maxPeakDist) maxPeakDist = peakDist;
 	}
 	close();
 	return maxPeakDist / 2;
 }
 
+
+function fwhmFromProfile(profile, targetY, vesselCenterX, minDist) {
+	intersects = getYIntersects(targetY, profile);
+	
+	leftX = intersects[0];
+	rightX = intersects[intersects.length - 1];
+	for (x = 0; x < intersects.length; x++) {
+		if (minDist && intersects[x] < vesselCenterX && vesselCenterX - intersects[x] < vesselCenterX - leftX) leftX = intersects[x];
+		if (minDist && intersects[x] > vesselCenterX && intersects[x] - vesselCenterX < rightX - vesselCenterX) rightX = intersects[x];
+		if (!minDist && intersects[x] < vesselCenterX && vesselCenterX - intersects[x] > vesselCenterX - leftX) leftX = intersects[x];
+		if (!minDist && intersects[x] > vesselCenterX && intersects[x] - vesselCenterX > rightX - vesselCenterX) rightX = intersects[x];
+	}
+
+	return rightX - leftX;
+}
+
+function getYIntersects(targetY, fx) {
+	intersects = newArray;
+		for (c=0; c < (fx.length - 1); c++) {
+			profileSlope = (fx[c+1] - fx[c]);
+			profileYInt = fx[c] + (-1 * profileSlope * c);
+			xInt = (targetY - profileYInt) / profileSlope;
+			if (xInt >= c && xInt <= (c+1)) {
+				intersects[intersects.length] = xInt;
+			}
+		}
+	return intersects;
+}
+
+//	====	PROGRAM START	====
 originalFileName = getInfo("image.filename");
 setTool("polyline");
 do {
@@ -122,7 +158,7 @@ roiManager("reset");
 maxFWHM = 0;
 
 // Determine the settings for the cross-lines
-cLength = findApproximateLength(x, y, height);
+cLength = getCLineLength(x, y, height);
 cSpace = 5;
 
 // Calculate any excess distance on the through-line so that the cross-lines can be centered
