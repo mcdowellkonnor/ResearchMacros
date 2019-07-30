@@ -65,8 +65,8 @@ function getFWHMFromProfiles(profiles, profileLength, pixelScale) {
 
 		// Using the adjusted intersects, recalculate the half max and find the x distance
 		Array.getStatistics(profile, min, max, mean, stdDev);
-		//halfMax = (max - minOf(profile[leftIntChange], profile[rightIntChange])) / 2;
-		halfMax = max / 2;
+		halfMax = (max - minOf(profile[leftIntChange], profile[rightIntChange])) / 2;
+		//halfMax = max / 2;
 		fwhm = fwhmFromProfile(profile, halfMax, ((rightIntChange + leftIntChange) / 2), false) * pixelScale;		
 		fwhms[fwhms.length] = fwhm;
 	}
@@ -100,17 +100,23 @@ function getCLineLength(x, y, imgHeight) {
 		halfMax = max / 2;
 		fwhm = fwhmFromProfile(profile, halfMax, dist, true);
 
-		peakDist = fwhm + (0.70 * fwhm);
+		peakDist = fwhm + (0.65 * fwhm);
 		if (peakDist > maxPeakDist) maxPeakDist = peakDist;
 	}
 	close();
-	return maxPeakDist / 2;
+
+	if (maxPeakDist == 0 || maxPeakDist > 80) {
+		return getNumber("Automatic Line Length Calculation Failed. Please input length for crosslines (in pixels).", 20) / 2;
+	} else {
+		return maxPeakDist / 2;	
+	}
 }
 
 
 function fwhmFromProfile(profile, targetY, vesselCenterX, minDist) {
 	intersects = getYIntersects(targetY, profile);
 	if (targetY < 0.2) return NaN;
+	if (intersects.length < 2) return NaN;
 	
 	leftX = intersects[0];
 	rightX = intersects[intersects.length - 1];
@@ -138,9 +144,12 @@ function getYIntersects(targetY, fx) {
 }
 
 //	====	PROGRAM START	====
+if (roiManager("count") > 0 || nResults > 0) showMessageWithCancel("Action Required","Obtaining measurements will clear ROI and previous results, continue?");
+roiManager("reset");
+run("Clear Results");
+
 originalFileName = getInfo("image.filename");
 setTool("polyline");
-roiManager("reset");
 do {
 	waitForUser("Please draw through line.\n\nClick OK when finished.");
 } while (selectionType() != 6)
@@ -150,9 +159,10 @@ getSelectionCoordinates(x, y);
 // Prepare for operation by getting information about the image
 getDimensions(width, height, channels, slices, frames);
 getPixelSize(pixelUnit, pixelWidth, pixelHeight);
-frameRate = getInfo("framerate");
 
-if (slices > 1) run("Z Project...", "projection=[Average Intensity] all");
+slicesPerFrame = slices;
+frameInterval = Stack.getFrameInterval();
+if (slices > 1) run("Z Project...", "projection=[Max Intensity] all");
 
 startingSlice = getSliceNumber();
 meanFwhms = newArray;
@@ -211,6 +221,8 @@ for (slice = 1; slice <= slices; slice++) {
 				makeLine(maxOf(val[0], val[1]), inverseSlope * maxOf(val[0], val[1]) + invYInt, minOf(val[0], val[1]), inverseSlope * minOf(val[0], val[1]) + invYInt);
 				Roi.setStrokeColor("red");
 				roiManager("add");
+				roiManager("select", roiManager("count") - 1);
+				roiManager("rename", roiManager("count"));
 
 				// Move the current x value
 				lastX = movingX;
@@ -222,7 +234,7 @@ for (slice = 1; slice <= slices; slice++) {
 					movingX = minOf(val[0], val[1]);
 				}
 			}
-			roiManager("show all with labels");
+			roiManager("show all without labels");
 		}
 	}
 
@@ -235,9 +247,10 @@ for (slice = 1; slice <= slices; slice++) {
 	Array.getStatistics(nonNanFwhms, min, max, mean, stdDev);
 	
 	setResult("Frame", slice-1, slice);
-	if (frameRate != "") setResult("Time (sec)", slice-1, slice * frameRate);
+	Stack.getUnits(A, B, C, Time, Value);
+	setResult("Time (" + Time + ")", slice-1, (slice - 1) * slicesPerFrame * frameInterval);
 	setResult("Mean (" + pixelUnit + ")", slice-1, mean);
-	setResult("Sigma", slice-1, stdDev);
+	setResult("SD", slice-1, stdDev);
 	for (i = 0; i < fwhms.length; i++) setResult("Line " + (i+1), slice-1, fwhms[i]);
 
 	// Set the maximum FWHM measurement to be used in the heatmap
@@ -255,17 +268,12 @@ updateResults();
 
 if (slices > 1) {
 	xValues = Array.slice(Array.getSequence(slices + 1), 1);
-	
-	xLabel = "Time (seconds)";
-	if (frameRate == "") {
-		frameRate = 1;
-		xLabel = "Frame Number";
-	}
-	
-	for (i = 0; i < xValues.length; i++) xValues[i] = xValues[i] * frameRate;
-	Plot.create("FWHM Diameter vs Slice Number for " + originalFileName, xLabel, "FWHM Diameter (" + pixelUnit + ")", xValues, meanFwhms);
+	xLabel = "Frame Number";	
 	Array.getStatistics(meanFwhms, min, maxY, mean, stdDev);
 	Array.getStatistics(xValues, minX, maxX, mean, stdDev);
+	Plot.create("Plot of Results", xLabel, "Mean FWHM (" + pixelUnit + ")");
 	Plot.setLimits(minX, maxX, 0, maxY);
+	Plot.add("connected circle", xValues, meanFwhms);
+	Plot.add("error bars", xValues, meanFwhmSTDEVs);
 	Plot.show();
 }
