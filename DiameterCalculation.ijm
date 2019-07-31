@@ -144,17 +144,24 @@ function getYIntersects(targetY, fx) {
 }
 
 //	====	PROGRAM START	====
-if (roiManager("count") > 0 || nResults > 0) showMessageWithCancel("Action Required","Obtaining measurements will clear ROI and previous results, continue?");
-roiManager("reset");
+useOld = false;
+if (roiManager("count") > 0) {
+	useOld = getBoolean("ROI already exists. Use the existing ROI for measurements?", "Use Existing ROI", "Reset ROI");
+	if(!useOld) roiManager("reset");
+}
+
+if (nResults > 0) showMessageWithCancel("Action Required","Results table is populated. Proceeding will clear the results.");
 run("Clear Results");
 
 originalFileName = getInfo("image.filename");
-setTool("polyline");
-do {
-	waitForUser("Please draw through line.\n\nClick OK when finished.");
-} while (selectionType() != 6)
-
-getSelectionCoordinates(x, y);
+if (!useOld) {
+	setTool("polyline");
+	do {
+		waitForUser("Please draw through line.\n\nClick OK when finished.");
+	} while (selectionType() != 6)
+	
+	getSelectionCoordinates(x, y);
+}
 
 // Prepare for operation by getting information about the image
 getDimensions(width, height, channels, slices, frames);
@@ -169,73 +176,81 @@ meanFwhms = newArray;
 meanFwhmSTDEVs = newArray;
 maxFWHM = 0;
 
-// Determine the settings for the cross-lines
-cLength = getCLineLength(x, y, height);
-cSpace = 5;
-
-// Calculate any excess distance on the through-line so that the cross-lines can be centered
-totalLength = 0;
-for (i = 0; i < x.length - 1; i++) totalLength += sqrt(pow(x[i+1]-x[i],2) + pow(y[i+1]-y[i],2));
-excessLength = totalLength % cSpace;
+if (!useOld) {
+	// Determine the settings for the cross-lines
+	cLength = getCLineLength(x, y, height);
+	cSpace = getNumber("Enter the desired distance between cross-lines (" + pixelUnit + "):", 5 * pixelWidth);
+	
+	// Calculate any excess distance on the through-line so that the cross-lines can be centered
+	totalLength = 0;
+	for (i = 0; i < x.length - 1; i++) totalLength += sqrt(pow(x[i+1]-x[i],2) + pow(y[i+1]-y[i],2));
+	excessLength = totalLength % cSpace;
+} else {
+	roiManager("select", 0);
+	getSelectionCoordinates(cXs, cYs);
+	cLength = sqrt(pow((cXs[1] - cXs[0]), 2) + pow((cYs[1] - cYs[0]), 2)) / 2;
+}
 
 slices = frames;
 for (slice = 1; slice <= slices; slice++) {
 	showProgress(slice, slices);
 	fwhms = newArray;
-
-	// Parse through the line segments and create the cross-lines
-	if (slice == 1) {
-		lastX = 0;
-		lastY = 0;
-		for (i = 0; i < x.length - 1; i++) {
-			slope = (y[i+1] - y[i]) / (x[i+1] - x[i]);
-			inverseSlope = -1 / slope;
-			yInt = y[i] + (-1 * slope * x[i]);
-
-			// Move the starting point based on the excess so that the cross-lines are centered
-			if (i == 0) {
-				val = getIntersection(x[i], y[i], excessLength / 2, slope, yInt);
-				if (x[i+1] > x[i]) {
-					movingX = maxOf(val[0], val[1]);
-				} else {
-					movingX = minOf(val[0], val[1]);
-				}
-			}
-
-			// Move the starting points on line-segments following the first so that equal cross-line distance is maintained
-			if (i > 0) {
-				val = getIntersection(lastX, lastY, cSpace, slope, yInt);
-				if (x[i+1] > x[i]) {
-					movingX = maxOf(val[0], val[1]);
-				} else {
-					movingX = minOf(val[0], val[1]);
-				}
-			}
+	
+	if (!useOld) {
+		// Parse through the line segments and create the cross-lines
+		if (slice == 1) {
+			lastX = 0;
+			lastY = 0;
+			for (i = 0; i < x.length - 1; i++) {
+				slope = (y[i+1] - y[i]) / (x[i+1] - x[i]);
+				inverseSlope = -1 / slope;
+				yInt = y[i] + (-1 * slope * x[i]);
 	
-			while (movingX <= maxOf(x[i], x[i+1]) && movingX >= minOf(x[i], x[i+1])) {
-				movingY = slope * movingX + yInt;
-				invYInt = movingY + (-1 * inverseSlope * movingX);
-				val = getIntersection(movingX, movingY, cLength, inverseSlope, invYInt);
-		
-				// The Cross Line:
-				makeLine(maxOf(val[0], val[1]), inverseSlope * maxOf(val[0], val[1]) + invYInt, minOf(val[0], val[1]), inverseSlope * minOf(val[0], val[1]) + invYInt);
-				Roi.setStrokeColor("red");
-				roiManager("add");
-				roiManager("select", roiManager("count") - 1);
-				roiManager("rename", roiManager("count"));
-
-				// Move the current x value
-				lastX = movingX;
-				lastY = movingY;
-				val = getIntersection(movingX, movingY, cSpace, slope, yInt);
-				if (x[i+1] > x[i]) {
-					movingX = maxOf(val[0], val[1]);
-				} else {
-					movingX = minOf(val[0], val[1]);
+				// Move the starting point based on the excess so that the cross-lines are centered
+				if (i == 0) {
+					val = getIntersection(x[i], y[i], excessLength / 2, slope, yInt);
+					if (x[i+1] > x[i]) {
+						movingX = maxOf(val[0], val[1]);
+					} else {
+						movingX = minOf(val[0], val[1]);
+					}
 				}
+	
+				// Move the starting points on line-segments following the first so that equal cross-line distance is maintained
+				if (i > 0) {
+					val = getIntersection(lastX, lastY, cSpace, slope, yInt);
+					if (x[i+1] > x[i]) {
+						movingX = maxOf(val[0], val[1]);
+					} else {
+						movingX = minOf(val[0], val[1]);
+					}
+				}
+		
+				while (movingX <= maxOf(x[i], x[i+1]) && movingX >= minOf(x[i], x[i+1])) {
+					movingY = slope * movingX + yInt;
+					invYInt = movingY + (-1 * inverseSlope * movingX);
+					val = getIntersection(movingX, movingY, cLength, inverseSlope, invYInt);
+			
+					// The Cross Line:
+					makeLine(maxOf(val[0], val[1]), inverseSlope * maxOf(val[0], val[1]) + invYInt, minOf(val[0], val[1]), inverseSlope * minOf(val[0], val[1]) + invYInt);
+					Roi.setStrokeColor("red");
+					roiManager("add");
+					roiManager("select", roiManager("count") - 1);
+					roiManager("rename", roiManager("count"));
+	
+					// Move the current x value
+					lastX = movingX;
+					lastY = movingY;
+					val = getIntersection(movingX, movingY, cSpace, slope, yInt);
+					if (x[i+1] > x[i]) {
+						movingX = maxOf(val[0], val[1]);
+					} else {
+						movingX = minOf(val[0], val[1]);
+					}
+				}
+				roiManager("show all without labels");
 			}
-			roiManager("show all without labels");
-		}
+		}	
 	}
 
 	// Parse through the cross-lines and obtain the FWHM values
@@ -251,7 +266,11 @@ for (slice = 1; slice <= slices; slice++) {
 	setResult("Time (" + Time + ")", slice-1, (slice - 1) * slicesPerFrame * frameInterval);
 	setResult("Mean (" + pixelUnit + ")", slice-1, mean);
 	setResult("SD", slice-1, stdDev);
-	for (i = 0; i < fwhms.length; i++) setResult("Line " + (i+1), slice-1, fwhms[i]);
+	
+	for (i = 0; i < fwhms.length; i++) {
+		if (fwhms[i] == 0) setResult("Line " + (i+1), slice-1, NaN);
+		else setResult("Line " + (i+1), slice-1, fwhms[i]);
+	}
 
 	// Set the maximum FWHM measurement to be used in the heatmap
 	if (max > maxFWHM) maxFWHM = max;
