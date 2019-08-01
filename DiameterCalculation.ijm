@@ -132,21 +132,21 @@ function fwhmFromProfile(profile, targetY, vesselCenterX, minDist) {
 
 function getYIntersects(targetY, fx) {
 	intersects = newArray;
-		for (c=0; c < (fx.length - 1); c++) {
-			profileSlope = (fx[c+1] - fx[c]);
-			profileYInt = fx[c] + (-1 * profileSlope * c);
-			xInt = (targetY - profileYInt) / profileSlope;
-			if (xInt >= c && xInt <= (c+1)) {
-				intersects[intersects.length] = xInt;
-			}
+	for (c=0; c < (fx.length - 1); c++) {
+		profileSlope = (fx[c+1] - fx[c]);
+		profileYInt = fx[c] + (-1 * profileSlope * c);
+		xInt = (targetY - profileYInt) / profileSlope;
+		if (xInt >= c && xInt <= (c+1)) {
+			intersects[intersects.length] = xInt;
 		}
+	}
 	return intersects;
 }
 
 //	====	PROGRAM START	====
 useOld = false;
 if (roiManager("count") > 0) {
-	useOld = getBoolean("ROI already exists. Use the existing ROI for measurements?", "Use Existing ROI", "Reset ROI");
+	useOld = !getBoolean("ROI already exists. Use the existing ROI for measurements?", "Reset ROI", "Use Existing ROI");
 	if(!useOld) roiManager("reset");
 }
 
@@ -156,10 +156,9 @@ run("Clear Results");
 originalFileName = getInfo("image.filename");
 if (!useOld) {
 	setTool("polyline");
-	do {
-		waitForUser("Please draw through line.\n\nClick OK when finished.");
-	} while (selectionType() != 6)
-	
+	waitForUser("Please draw through line.\n\nClick OK when finished.");
+	if (selectionType() == -1) exit();
+	if (selectionType() != 6 && selectionType() != 5) exit("Through line must be a line or polyline.");
 	getSelectionCoordinates(x, y);
 }
 
@@ -167,8 +166,6 @@ if (!useOld) {
 getDimensions(width, height, channels, slices, frames);
 getPixelSize(pixelUnit, pixelWidth, pixelHeight);
 
-slicesPerFrame = slices;
-frameInterval = Stack.getFrameInterval();
 if (slices > 1) run("Z Project...", "projection=[Max Intensity] all");
 
 startingSlice = getSliceNumber();
@@ -179,7 +176,7 @@ maxFWHM = 0;
 if (!useOld) {
 	// Determine the settings for the cross-lines
 	cLength = getCLineLength(x, y, height);
-	cSpace = getNumber("Enter the desired distance between cross-lines (" + pixelUnit + "):", 5 * pixelWidth);
+	cSpace = getNumber("Enter the desired distance between cross-lines (" + pixelUnit + "):", 5 * pixelWidth) / pixelWidth;
 	
 	// Calculate any excess distance on the through-line so that the cross-lines can be centered
 	totalLength = 0;
@@ -263,13 +260,14 @@ for (slice = 1; slice <= slices; slice++) {
 	
 	setResult("Frame", slice-1, slice);
 	Stack.getUnits(A, B, C, Time, Value);
-	setResult("Time (" + Time + ")", slice-1, (slice - 1) * slicesPerFrame * frameInterval);
 	setResult("Mean (" + pixelUnit + ")", slice-1, mean);
 	setResult("SD", slice-1, stdDev);
 	
 	for (i = 0; i < fwhms.length; i++) {
-		if (fwhms[i] == 0) setResult("Line " + (i+1), slice-1, NaN);
-		else setResult("Line " + (i+1), slice-1, fwhms[i]);
+		if ((i+1) <= roiManager("count")) {
+			if (fwhms[i] == 0) setResult("Line " + (i+1), slice-1, NaN);
+			else setResult("Line " + (i+1), slice-1, fwhms[i]);
+		}
 	}
 
 	// Set the maximum FWHM measurement to be used in the heatmap
