@@ -3,7 +3,7 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	requires("1.45s");
 	setOption("ExpandableArrays", true);
 
-	// Check to see if an update is necessary
+	// Check to see if a system update is necessary
 	tmpDir = getDirectory("temp");
 	updateRequired = false;
 	settingsDir = tmpDir + "VasoMetrics.ini";
@@ -24,6 +24,21 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 		tmp = File.delete(settingsDir);
 		File.close(File.open(settingsDir));
 		File.append(updateLine, settingsDir);	
+	}
+
+	// Check to see if the macro requires an update. This does not yet update the present execution (which is probably stored in memory)
+	showStatus("Checking for VasoMetrics Updates...");
+	remoteUrl = "https://raw.githubusercontent.com/mcdowellkonnor/ResearchMacros/master/VasoMetrics.ijm";
+	remoteVasometrics = File.openUrlAsString(remoteUrl);
+	if (remoteVasometrics  == "") {
+		showStatus("Cannot connect to server to update VasoMetrics macro.");
+	} else {
+		currentVasometrics = File.openAsString("VasoMetrics.ijm");
+		if (currentVasometrics  != remoteVasometrics) {
+			showStatus("Updating Vasometrics...");
+			File.saveString(remoteVasometrics, "VasoMetrics.ijm");
+		}
+		showStatus("VasoMetrics up to date");
 	}
 
 	// Prepare for operation by getting information about the image
@@ -63,7 +78,8 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 		totalLength = 0;
 		for (i = 0; i < x.length - 1; i++) totalLength += sqrt(pow(x[i+1]-x[i],2) + pow(y[i+1]-y[i],2));
 		excessLength = totalLength % cSpace;
-	} else {
+	}
+ else {
 		roiManager("select", 0);
 		getSelectionCoordinates(cXs, cYs);
 		cLength = sqrt(pow((cXs[1] - cXs[0]), 2) + pow((cYs[1] - cYs[0]), 2)) / 2;
@@ -73,7 +89,8 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	for (slice = 1; slice <= slices; slice++) {
 		showProgress(slice, slices);
 		fwhms = newArray;
-		
+	
+	
 		if (!useOld) {
 			// Parse through the line segments and create the cross-lines
 			if (slice == 1) {
@@ -128,7 +145,8 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 					}
 					roiManager("show all without labels");
 				}
-			}	
+			}
+	
 		}
 	
 		// Parse through the cross-lines and obtain the FWHM values
@@ -170,7 +188,8 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 		Array.getStatistics(meanFwhms, min, maxY, mean, stdDev);
 		Array.getStatistics(xValues, minX, maxX, mean, stdDev);
 		Plot.create("Plot of Results", xLabel, "Mean FWHM (" + pixelUnit + ")");
-		Plot.setLimits(minX, maxX, 0, maxY);
+		Plot.setLimits(minX, maxX, 0, maxY);
+
 		Plot.add("connected circle", xValues, meanFwhms);
 		Plot.add("error bars", xValues, meanFwhmSTDEVs);
 		Plot.show();
