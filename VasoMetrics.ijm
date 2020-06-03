@@ -2,7 +2,6 @@
 macro "VasoMetrics Action Tool - C059T3e16V" {
 	requires("1.45s");
 	setOption("ExpandableArrays", true);
-	macroDir = File.directory;
 
 	// Check to see if a system update is necessary
 	tmpDir = getDirectory("temp");
@@ -34,10 +33,17 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	if (remoteVasometrics  == "") {
 		showStatus("Cannot connect to server to update VasoMetrics macro.");
 	} else {
-		currentVasometrics = File.openAsString(macroDir + "VasoMetrics.ijm");
-		if (currentVasometrics  != remoteVasometrics) {
+		updateVaso = false;
+		if (File.exists(getDirectory("macros") + "VasoMetrics.ijm")) {
+			currentVasometrics = File.openAsString(getDirectory("macros") + "VasoMetrics.ijm");
+			if (currentVasometrics  != remoteVasometrics) updateVaso = true;
+		} else {
+			updateVaso = true;
+		}
+		
+		if (updateVaso) {
 			showStatus("Updating Vasometrics...");
-			File.saveString(remoteVasometrics, macroDir + "VasoMetrics.ijm");
+			File.saveString(remoteVasometrics, getDirectory("macros") + "VasoMetrics.ijm");
 		}
 		showStatus("VasoMetrics up to date");
 	}
@@ -45,8 +51,9 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	// Add this macro to the list of startup macros
 	startup = File.openAsString(getDirectory("macros") + "StartupMacros.txt");
 	if (!startup.contains("VasoMetrics Action Tool - C059T3e16V")) {
-		startup += "\nmacro \"VasoMetrics Action Tool - C059T3e16V\" { runMacro(getDirectory(\"macros\") + \"VasoMetrics.ijm\"); }"
+		startup += "\nmacro \"VasoMetrics Action Tool - C059T3e16V\" { runMacro(getDirectory(\"macros\") + \"VasoMetrics.ijm\"); }";
 		File.saveString(startup, getDirectory("macros") + "StartupMacros.txt");
+		showStatus("VasoMetrics added to Startup Macros");
 	}
 
 
