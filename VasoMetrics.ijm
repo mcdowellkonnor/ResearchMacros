@@ -45,7 +45,7 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	// Add this macro to the list of startup macros
 	startup = File.openAsString(getDirectory("macros") + "StartupMacros.txt");
 	if (!startup.contains("VasoMetrics Action Tool - C059T3e16V")) {
-		startup += "\nmacro \\"VasoMetrics Action Tool - C059T3e16V\\" { runMacro(getDirectory(\\"macros\\") + \\"VasoMetrics.ijm\\"); }"
+		startup += "\nmacro \"VasoMetrics Action Tool - C059T3e16V\" { runMacro(getDirectory(\"macros\") + \"VasoMetrics.ijm\"); }"
 		File.saveString(startup, getDirectory("macros") + "StartupMacros.txt");
 	}
 
