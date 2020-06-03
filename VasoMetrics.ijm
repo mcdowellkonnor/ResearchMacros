@@ -2,6 +2,7 @@
 macro "VasoMetrics Action Tool - C059T3e16V" {
 	requires("1.45s");
 	setOption("ExpandableArrays", true);
+	macroDir = File.directory;
 
 	// Check to see if a system update is necessary
 	tmpDir = getDirectory("temp");
@@ -33,10 +34,10 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	if (remoteVasometrics  == "") {
 		showStatus("Cannot connect to server to update VasoMetrics macro.");
 	} else {
-		currentVasometrics = File.openAsString("VasoMetrics.ijm");
+		currentVasometrics = File.openAsString(macroDir + "VasoMetrics.ijm");
 		if (currentVasometrics  != remoteVasometrics) {
 			showStatus("Updating Vasometrics...");
-			File.saveString(remoteVasometrics, "VasoMetrics.ijm");
+			File.saveString(remoteVasometrics, macroDir + "VasoMetrics.ijm");
 		}
 		showStatus("VasoMetrics up to date");
 	}
