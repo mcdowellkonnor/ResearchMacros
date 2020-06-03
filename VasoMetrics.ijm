@@ -42,6 +42,14 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 		showStatus("VasoMetrics up to date");
 	}
 
+	// Add this macro to the list of startup macros
+	startup = File.openAsString(getDirectory("macros") + "StartupMacros.txt");
+	if (!startup.contains("VasoMetrics Action Tool - C059T3e16V")) {
+		startup += "\nmacro \\"VasoMetrics Action Tool - C059T3e16V\\" { runMacro(getDirectory(\\"macros\\") + \\"VasoMetrics.ijm\\"); }"
+		File.saveString(startup, getDirectory("macros") + "StartupMacros.txt");
+	}
+
+
 	// Prepare for operation by getting information about the image
 	getDimensions(width, height, channels, slices, frames);
 	getPixelSize(pixelUnit, pixelWidth, pixelHeight);
@@ -59,7 +67,7 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	originalFileName = getInfo("image.filename");
 	if (!useOld) {
 		setTool("polyline");
-		waitForUser("Please draw through line.\n\nClick OK when finished.");
+		waitForUser("Please draw through line.\nRight click when selecting the final point.\nClick OK when finished.");
 		if (selectionType() == -1) exit();
 		if (selectionType() != 6 && selectionType() != 5) exit("Through line must be a line or polyline.");
 		getSelectionCoordinates(x, y);
