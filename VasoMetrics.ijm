@@ -49,7 +49,14 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	}
 
 	// Add this macro to the list of startup macros
-	startup = File.openAsString(getDirectory("macros") + "StartupMacros.txt");
+	if (File.exists(getDirectory("macros") + "StartupMacros.txt") {
+		startup = File.openAsString(getDirectory("macros") + "StartupMacros.txt");
+	} else if (File.exists(getDirectory("macros") + "StartupMacros.fiji.ijm")) {
+		startup = File.openAsString(getDirectory("macros") + "StartupMacros.fiji.ijm");
+	} else {
+		showStatus("Could not locate StartupMacros file in Macros folder");
+	}
+	
 	if (!startup.contains("VasoMetrics Action Tool - C059T3e16V")) {
 		startup += "\nmacro \"VasoMetrics Action Tool - C059T3e16V\" { runMacro(getDirectory(\"macros\") + \"VasoMetrics.ijm\"); }";
 		File.saveString(startup, getDirectory("macros") + "StartupMacros.txt");
