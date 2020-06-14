@@ -49,7 +49,7 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	}
 
 	// Add this macro to the list of startup macros
-	if (File.exists(getDirectory("macros") + "StartupMacros.txt") {
+	if (File.exists(getDirectory("macros") + "StartupMacros.txt")) {
 		startup = File.openAsString(getDirectory("macros") + "StartupMacros.txt");
 	} else if (File.exists(getDirectory("macros") + "StartupMacros.fiji.ijm")) {
 		startup = File.openAsString(getDirectory("macros") + "StartupMacros.fiji.ijm");
