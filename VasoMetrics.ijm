@@ -42,27 +42,29 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 		}
 		
 		if (updateVaso) {
-			showStatus("Updating Vasometrics...");
-			File.saveString(remoteVasometrics, getDirectory("macros") + "VasoMetrics.ijm");
+			Dialog.create("VasoMetrics Update Available");
+			Dialog.addMessage("Click 'Help' to view changes.");
+			Dialog.addHelp("https://github.com/mcdowellkonnor/ResearchMacros/commit/master");
+			Dialog.addCheckbox("Install Update", 1);
+			Dialog.show();
+			if (Dialog.getCheckbox()) {
+				showStatus("Updating Vasometrics...");
+				File.saveString(remoteVasometrics, getDirectory("macros") + "VasoMetrics.ijm");
+				showStatus("VasoMetrics up to date");
+			}
 		}
-		showStatus("VasoMetrics up to date");
 	}
 
 	// Add this macro to the list of startup macros
-	if (File.exists(getDirectory("macros") + "StartupMacros.txt")) {
-		startup = File.openAsString(getDirectory("macros") + "StartupMacros.txt");
-	} else if (File.exists(getDirectory("macros") + "StartupMacros.fiji.ijm")) {
-		startup = File.openAsString(getDirectory("macros") + "StartupMacros.fiji.ijm");
-	} else {
-		showStatus("Could not locate StartupMacros file in Macros folder");
-	}
+	startupExtension = ".txt";
+	if (File.exists(getDirectory("macros") + "StartupMacros.fiji.ijm")) startupExtension = ".fiji.ijm";
+	startMacros = File.openAsString(getDirectory("macros") + "StartupMacros" + startupExtension);
 	
-	if (!startup.contains("VasoMetrics Action Tool - C059T3e16V")) {
-		startup += "\nmacro \"VasoMetrics Action Tool - C059T3e16V\" { runMacro(getDirectory(\"macros\") + \"VasoMetrics.ijm\"); }";
-		File.saveString(startup, getDirectory("macros") + "StartupMacros.txt");
+	if (indexOf(startMacros, "VasoMetrics Action Tool - C059T3e16V") == -1) {
+		startMacros += "\nmacro \"VasoMetrics Action Tool - C059T3e16V\" { runMacro(getDirectory(\"macros\") + \"VasoMetrics.ijm\"); }";
+		File.saveString(startMacros, getDirectory("macros") + "StartupMacros" + startupExtension);
 		showStatus("VasoMetrics added to Startup Macros");
 	}
-
 
 	// Prepare for operation by getting information about the image
 	getDimensions(width, height, channels, slices, frames);
@@ -294,41 +296,45 @@ function getFWHMFromProfiles(profiles, profileLength, pixelScale) {
 }
 
 function getCLineLength(x, y, imgHeight) {
-	getDimensions(width, height, channels, slices, frames);
-	if (slices > 1 || frames > 1) {
-		run("Z Project...", "projection=[Max Intensity] all");
-	} else {
-		run("Duplicate...", " ");
-	}
-	
-	run("Median...", "radius=10 stack");
-	maxPeakDist = 0;
-	for (i = 0; i < x.length - 1; i++) {
-		invM = -1 / ((y[i+1] - y[i]) / (x[i+1] - x[i]));
-		invB = ((y[i+1] + y[i])/2) + (-1 * invM * ((x[i+1] + x[i]) / 2));
-
-		if (invM > 0) {
-			makeLine(0, invB, (imgHeight - invB) / invM, imgHeight);
+	if (getBoolean("Select cross-line length method", "Automatically Calculate Length", "Manually Enter Length")) {
+		getDimensions(width, height, channels, slices, frames);
+		if (slices > 1 || frames > 1) {
+			run("Z Project...", "projection=[Max Intensity] all");
 		} else {
-			makeLine(0, invB, (0 - invB) / invM, 0);	
+			run("Duplicate...", " ");
 		}
 		
-		profile = getProfile();
-		dist = sqrt(pow(((x[i+1] + x[i]) / 2) - 0, 2) + pow(((y[i+1] + y[i])/2) - invB, 2));
-		sample = Array.slice(profile,dist-10,dist+10);
-		Array.getStatistics(sample, min, max, mean, stdDev);
-		halfMax = max / 2;
-		fwhm = fwhmFromProfile(profile, halfMax, dist, true);
+		run("Median...", "radius=10 stack");
+		maxPeakDist = 0;
+		for (i = 0; i < x.length - 1; i++) {
+			invM = -1 / ((y[i+1] - y[i]) / (x[i+1] - x[i]));
+			invB = ((y[i+1] + y[i])/2) + (-1 * invM * ((x[i+1] + x[i]) / 2));
 
-		peakDist = fwhm + (0.65 * fwhm);
-		if (peakDist > maxPeakDist) maxPeakDist = peakDist;
-	}
-	close();
+			if (invM > 0) {
+				makeLine(0, invB, (imgHeight - invB) / invM, imgHeight);
+			} else {
+				makeLine(0, invB, (0 - invB) / invM, 0);	
+			}
+			
+			profile = getProfile();
+			dist = sqrt(pow(((x[i+1] + x[i]) / 2) - 0, 2) + pow(((y[i+1] + y[i])/2) - invB, 2));
+			sample = Array.slice(profile,dist-10,dist+10);
+			Array.getStatistics(sample, min, max, mean, stdDev);
+			halfMax = max / 2;
+			fwhm = fwhmFromProfile(profile, halfMax, dist, true);
 
-	if (maxPeakDist == 0 || maxPeakDist > 80) {
-		return getNumber("Automatic Line Length Calculation Failed. Please input length for crosslines (in pixels).", 20) / 2;
+			peakDist = fwhm + (0.65 * fwhm);
+			if (peakDist > maxPeakDist) maxPeakDist = peakDist;
+		}
+		close();
+
+		if (maxPeakDist == 0 || maxPeakDist > 80) {
+			return getNumber("Automatic Line Length Calculation Failed. Please input length for crosslines (in pixels).", 20) / 2;
+		} else {
+			return maxPeakDist / 2;	
+		}
 	} else {
-		return maxPeakDist / 2;	
+		return getNumber("Please input length for crosslines (in pixels).", 20) / 2
 	}
 }
 
