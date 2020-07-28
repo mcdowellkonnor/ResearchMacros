@@ -9,7 +9,7 @@ Once the code has been downloaded, open ImageJ/Fiji. On the main menu, click *Pl
 Once VasoMetrics is executed for the first time, it will install itself into the Startup Macros list, and will appear on your toolbar whenever you close and reopen ImageJ/Fiji. 
 
 ## Usage
-Everytime VasoMetrics launches, it will check for updates against this GitHub repository. Should an update be available, a prompt will appear which will allow for self-updating and viewing the updates. The updated code will be utilized upon the next launch of the macro. 
+Everytime VasoMetrics launches, it will check for updates against this GitHub repository. Should an update be available, a prompt will appear which will allow for self-updating and viewing the updates. If approved, the updated code will be utilized upon the next launch of the macro. 
 
 An image needs to be opened for VasoMetrics to function. VasoMetrics will automatically perform a maximum intensity projection if there are slices in the image (*Image -> Stacks -> Z Project...*). To check the slices/frames arrangement in your image, select *Image -> Properties...* 
 
@@ -17,17 +17,24 @@ Once the image is ready, VasoMetrics will prompt for the user to draw a through-
 
 ![Example Paths](https://github.com/mcdowellkonnor/ResearchMacros/blob/master/PathsExample.jpg)
 
-Next, you can either choose to automatically determine cross-line length or manually enter the length. Cross-lines are used to obtain intensity profiles, and need to be long enough to span the entire vessel and some of the background. The automatic length is calculated by taking a the intensity profile of a long line perpendicular to the first through-line segment, and is sufficient in most cases. 
+Before you continue, you should ensure the scale is set correctly on your image. VasoMetrics will output data to the scale you have defined (which is pixels by default). To set the scale, select *Analyze -> Set Scale...* If you have a pixel-to-micron ratio of 5, you would enter "5" in the *Distance in pixels* box, and "1" in the *Known distance* box. You should then change the *Unit of length* from "pixels" to "microns," as VasoMetrics will use this string in its results.   
+
+Next, you can either choose to automatically determine cross-line length or manually enter the length. Cross-lines are used to obtain intensity profiles, and need to be long enough to span the entire vessel and some of the background. The automatic length is calculated by taking the intensity profile of a line (that spans the image's bounds) perpendicular to the first through-line segment, and is sufficient in most cases. 
 
 Finally, enter the spacing between cross-lines.
 
 ![Example Spacing](https://github.com/mcdowellkonnor/ResearchMacros/blob/master/SpacingExample.jpg)
 
-After confirming the spacing, VasoMetrics will measure FWHM for each cross-line, in each frame. It will then output a table and figure similar to the one below. Re-running the program will result in prompts confirming clearing the results table and the ROI manager.
+After confirming the spacing, VasoMetrics will measure [full-width half-maximum (FWHM)](https://en.wikipedia.org/wiki/Full_width_at_half_maximum) for the intensity profile of each cross-line, in each frame. It will then output a table and figure similar to the one below. The figure will appear if the image contains frames, and displays the mean±stdev for each frame. Re-running the program will result in prompts confirming clearing the results table and the [ROI manager](https://imagej.nih.gov/ij/docs/menus/analyze.html#manager). The table's rows represent image frames. The first three columns display the frame number, mean FWHM diameter for all cross-lines in that frame, and standard deviation for that frame. The rest of the columns show the exact FWHM diameter obtained for each cross-line. 
 
 ![Example Results](https://github.com/mcdowellkonnor/ResearchMacros/blob/master/ResultsExample.png)
 
-To manipulate the results further, you will need to export the data to a spreadsheet or to Matlab. The data can be copied and pasted into Matlab as a vector. Otherwise, you can click *File -> Save As...* on the results pop-up to save the data.
+## Saving and Using Data
+To manipulate the results further, you will need to export the data to a spreadsheet or to Matlab. The data can be copied and pasted into Matlab. Otherwise, you can click *File -> Save As...* on the results pop-up to save the data.
+
+You may want to save the cross-lines you have created. On the ROI manager, select *More -> Save...* This will save a ZIP file which can be later opened in ImageJ. 
+
+To investigate individual intensity profiles, which is useful for detecting the reasoning behind erroneous measurements, select the frame of interest. Then, select the cross-line of interest from the ROI manager. Finally, select *Analyze -> Plot Profile...* or click *Ctrl + K* to view the intensity profile for that cross-line. 
 
 ## Contributing and Error Reporting
 For major changes/issues, please open an issue to discuss what you would like to change. You can open an issue [here](https://github.com/mcdowellkonnor/ResearchMacros/issues), although this will require having a Github account. 
