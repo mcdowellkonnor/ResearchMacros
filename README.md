@@ -36,5 +36,7 @@ You may want to save the cross-lines you have created. On the ROI manager, selec
 
 To investigate individual intensity profiles, which is useful for detecting the reasoning behind erroneous measurements, select the frame of interest. Then, select the cross-line of interest from the ROI manager. Finally, select *Analyze -> Plot Profile...* or click *Ctrl + K* to view the intensity profile for that cross-line. 
 
+To quickly obtain all intensity profiles from the ROI manager use the following method. On the ROI manager, select all cross-lines (*Ctrl+A*). Then click *More -> Multi Plot.* To save the intensity profile data, on the intensity profile figure click *Data -> Save Data...* or you can copy the data directly into a spreadsheet. 
+
 ## Contributing and Error Reporting
 For major changes/issues, please open an issue to discuss what you would like to change. You can open an issue [here](https://github.com/mcdowellkonnor/ResearchMacros/issues), although this will require having a Github account. 
