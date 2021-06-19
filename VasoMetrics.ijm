@@ -1,4 +1,5 @@
-// Developed by Konnor McDowell at the Seattle Children's Research Institute, 2019
+// Developed by Konnor McDowell at the Seattle Children's Research Institute, Summer 2019
+// Updated to include movie support, general bug fixes, and general improvements by Dr. Pablo Blinder's lab, June 2021 (thanks!!!!)
 macro "VasoMetrics Action Tool - C059T3e16V" {
 	requires("1.45s");
 	setOption("ExpandableArrays", true);
@@ -67,8 +68,15 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	}
 
 	// Prepare for operation by getting information about the image
+	//originalFileName = getInfo("image.filename");
+	originalFileName = getTitle();
 	getDimensions(width, height, channels, slices, frames);
 	getPixelSize(pixelUnit, pixelWidth, pixelHeight);
+
+	print("originalFileName:",originalFileName);
+	print("slices:",slices);
+	print("frames:",frames);
+	
 	if (slices > 1) run("Z Project...", "projection=[Max Intensity] all");
 	
 	useOld = false;
@@ -80,7 +88,7 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 	if (nResults > 0) showMessageWithCancel("Action Required","Results table is populated. Proceeding will clear the results.");
 	run("Clear Results");
 	
-	originalFileName = getInfo("image.filename");
+	
 	if (!useOld) {
 		setTool("polyline");
 		waitForUser("Please draw through line.\nRight click when selecting the final point.\nClick OK when finished.");
@@ -88,6 +96,7 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 		if (selectionType() != 6 && selectionType() != 5) exit("Through line must be a line or polyline.");
 		getSelectionCoordinates(x, y);
 	}
+
 	
 	startingSlice = getSliceNumber();
 	meanFwhms = newArray;
@@ -109,8 +118,8 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 		getSelectionCoordinates(cXs, cYs);
 		cLength = sqrt(pow((cXs[1] - cXs[0]), 2) + pow((cYs[1] - cYs[0]), 2)) / 2;
 	}
-	
-	slices = frames;
+	selectWindow (originalFileName); 
+	//slices = frames;
 	for (slice = 1; slice <= slices; slice++) {
 		showProgress(slice, slices);
 		fwhms = newArray;
@@ -368,5 +377,3 @@ function getYIntersects(targetY, fx) {
 	}
 	return intersects;
 }
-	
-
