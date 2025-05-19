@@ -19,7 +19,7 @@ macro "VasoMetrics Action Tool - C059T3e16V" {
 		lastUpdate = replace(updateLine, "LastUpdateDOM:", "");
 		lastDOM = parseInt(lastUpdate);
 		if (abs(DOM - lastDOM) >= 10) {
-			run("Update...");
+			// run("Update...");
 			updateLine = "LastUpdateDOM:" + DOM + "\n";
 		}
 		tmp = File.delete(settingsDir);
